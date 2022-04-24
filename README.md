@@ -1,1 +1,1 @@
-# Bayesian-Var-to-Predict-Inflation
+# Bayesian-Var-to-Forecast-Inflation
