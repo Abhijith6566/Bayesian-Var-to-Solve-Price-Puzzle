@@ -1,1 +1,1 @@
-# Bayesian-Var-to-Solve-Prize-Puzzle
+# Bayesian-Var-to-Predict-Inflation
