@@ -1,0 +1,69 @@
+---
+title: "BVAR"
+author: "Abhijith & Vidhi Sharma"
+date: '2022-04-24'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+dat<-read.csv('C:/Users/asibh/Desktop/DSBA 6010- Bayesian/Project/T9-bvar/Prize Puzzle/Data/USData.csv')
+```
+
+
+```{r}
+library(BMR)
+```
+```{r}
+gtsplot(dat[, 1:3], dates = dat[, 4])
+
+```
+
+```{r}
+bvar_obj <- new(bvarm)
+```
+
+```{r}
+bvar_obj$build(data.matrix(dat[,1:3]),
+               TRUE, # constant
+               4) # lags
+```
+
+
+```{r}
+prior <- c(1, 1, 1)
+```
+```{r}
+bvar_obj$prior(prior, # prior mean value
+               1, # var_type
+               1, # decay_type
+               0.2, # HP1
+               0.5, # HP2
+               10^5, # HP3
+               1.0) # HP4
+```
+
+```{r}
+bvar_obj$gibbs(10000)
+```
+
+```{r}
+plot(bvar_obj, var_names = colnames(dat)[-4], save = FALSE)
+```
+
+
+
+```{r}
+forecast(bvar_obj, shocks = TRUE, var_names = colnames(dat)[-4], 
+    back_data = 12, save = FALSE)
+```
+
+```{r}
+predict <- forecast(bvar_obj, shocks = TRUE, var_names = colnames(dat)[-4], 
+    save = TRUE)
+```
+
+
