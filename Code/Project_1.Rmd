@@ -88,4 +88,28 @@ install.packages("ggplot2")
 devtools::install_github("kthohr/BMR")
 ```
 
+```{r}
+constr <- c(+4, -3, -2, -5)
+```
+
+```{r}
+
+model1 <- uhlig.reject(Y = dat, nlags = 12, draws = 200, 
+    subdraws = 200, nkeep = 1000, KMIN = 1, KMAX = 6, constrained = constr, 
+    constant = FALSE, steps = 60)
+```
+
+```{r}
+summary(model1)
+```
+
+```{r}
+nam <- c("GDP", "GDP Deflator", "Comm Price Index", "Fed Funds Rate", 
+    "NB Reserves", "Total Reserves")
+
+irfs1 <- model1$IRFS
+irfplot(irfdraws = irfs1, type = "median", labels = nam, 
+    save = FALSE, bands = c(0.16, 0.84), grid = TRUE, bw = FALSE)
+
+```
 
