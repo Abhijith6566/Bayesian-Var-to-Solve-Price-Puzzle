@@ -70,7 +70,11 @@ The estimation results are below:
 Model1 <- VAR(sv, p = 5, season = NULL, exog = NULL, type = "const")
 Model1
 ```
+Checking for granger causality ; although this test is not a robost statistic just to conclude causal effects as it is hindered by number of confounds in Economy.
 
+```{r}
+causality(Model1, cause = 'interestrate')
+```
 Using the VAR model , we implied our constraints to reduce the VAR equation with our structural assumption
 and thus we can see covariance matrix ( We used to upper triangle as zero and tried to find for lower triangle); keytake away is interest rate and unemployment rate and unemployment rate and inflation rate are moving in the same direction ( Since this data is for 60 years; it satisfies the theory for long run)
 ```{r warning=FALSE}
