@@ -1,0 +1,99 @@
+---
+title: "BVAR"
+author: "Abhijith & Vidhi Sharma"
+date: '2022-04-24'
+output: html_document
+---
+Importing all libraries required to run this Rmarkdown File. 
+
+```{r setup, include=FALSE}
+library(BMR)
+library(Rcpp)
+library(ggplot2)
+
+```
+
+Importing the dataset
+
+```{r}
+usdat<-read.csv('Data/USData.csv')
+```
+
+Plotting the data set and we can higher inflations before 1980s and some ups and downs near 2000 and also interest rate rise in around 2004 to 2007 ( Just before global financial crisis)
+
+```{r}
+gtsplot(usdat[, 1:3], dates = usdat[, 4])
+
+```
+Creating a new object class for Bvar model.
+```{r}
+bvar_obj <- new(bvarm)
+```
+
+Constructing the matrix as an input to build, you can read more on BVARM using "?BVARM" in R Console.
+```{r}
+bvar_obj$build(data.matrix(usdat[,1:3]),
+               TRUE, # constant
+               4) # lags
+```
+
+
+Setting up the priors; Minnesota Priors 
+
+```{r}
+prior <- c(1, 1, 1)
+```
+
+
+```{r}
+bvar_obj$prior(prior, # prior mean value
+               1, # var_type
+               1, # decay_type
+               0.2, # HP1
+               0.5, # HP2
+               10^5, # HP3
+               1.0) # HP4
+```
+
+Sampling from the posterior distributions using gibbs sampler. 
+"
+Gibbs sampling or a Gibbs sampler is a Markov chain Monte Carlo (MCMC) algorithm for obtaining a sequence of observations which are approximated from a specified multivariate probability distribution, when direct sampling is difficult. This sequence can be used to approximate the joint distribution (e.g., to generate a histogram of the distribution); to approximate the marginal distribution of one of the variables, or some subset of the variables" 
+
+Gibbs is highly used in time series models especially with DSGE's ( Dynamic stochastic general equailibrium); more probable reason to use gibbs for them is that when we use gibbs it will use multiple conditional distributions to merge them to one invariate joint distribution ; essentially similar to our VAR.
+
+```{r}
+bvar_obj$gibbs(10000)
+```
+
+Plotting the posteriors obtained from gibbs sampler, The first one is conditionally on other variables for constant and  other plots are iterations of gibbs sampler posterior distributions for each variable.
+
+```{r}
+plot(bvar_obj, var_names = colnames(usdat)[-4], save = FALSE)
+```
+
+
+```{r}
+#setRefClass("bvarm")
+#IRF(bvar_obj, 20, var_names = colnames(usdat)[-1], save = FALSE)
+```
+
+
+
+Now forecasting of inflation, unemployment and interest rate with bvar after years 2013 with shocks in economy present. It seems like a steady state of inflation for couple of time periods around 2, It is true for time periods between 2013 to 2020. ( Although forecasting period is shorter than that)
+```{r}
+forecast(bvar_obj, shocks = TRUE, var_names = colnames(usdat)[-4], 
+    back_data = 12, save = FALSE)
+```
+Just to look at our predicted values over the time, one lacking feature in this model is absense of exogenous shocks to these the economy for this we can use "Bayesian VAR model with the Stochastic Search Variable Selection (SSVS)" , to see the application of such model; you can visit this website {r} [Click here] ('https://econpapers.repec.org/paper/antwpaper/2012010.htm')
+```{r}
+predict <- forecast(bvar_obj, shocks = TRUE, var_names = colnames(usdat)[-4], 
+    save = TRUE)
+predict
+```
+
+
+
+
+
+
+
