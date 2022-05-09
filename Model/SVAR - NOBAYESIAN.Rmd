@@ -37,9 +37,14 @@ ts_plot(inflation, title = "inflation", Xtitle = "Time", Ytitle = "Inflation Rat
 ts_plot(interest, title = "interest", Xtitle = "Time", Ytitle = "interest rate")
 ```
 
-Now setting up the sign restricitons; for this we have created a n*n square matrix and then we have selected the restriction conditions based on the idea that no direct relationship between interest rate and inflation. This assumption is based on Svensson article on theoritical equation for monetary policy and lags, you can find the research paper here:
+Now setting up the sign restricitons; for this we have created a n*n (3*3, for our model) square matrix and then we have selected the restriction conditions based on the idea that no direct relationship between interest rate and inflation. This assumption is based on Svensson article on theoritical equation for monetary policy and lags, you can find the research paper here:
 
 Svensson, L. E. 0. (n.d.). Policy rules for inflation targeting - NBER. Retrieved May 8, 2022, from https://www.nber.org/system/files/chapters/c7417/c7417.pdf 
+
+#in our model we have used amat with dimesion (3*3).For the amat, the elements marked by NA entries are marked at the relavant positions. 
+NA in our case is interest rate and unemployement rate , unemployement rate and inflation rate 
+
+
 
 ```{r}
 amat <- diag(3)
