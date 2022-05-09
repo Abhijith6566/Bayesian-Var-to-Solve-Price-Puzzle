@@ -101,3 +101,12 @@ SVARfevd
 plot(SVARfevd)
 ```
 
+For prediction of a normal VAR with no restrictions
+
+```{r}
+VARMod1.prd <- predict(Model1, n.ahead = 100
+                        , ci = 0.95)
+plot(VARMod1.prd )
+
+```
+
