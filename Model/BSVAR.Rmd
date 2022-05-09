@@ -1,0 +1,252 @@
+---
+title: "BSVAR"
+author: "Abhijith & Vidhi Sharma"
+date: '2022-05-08'
+output: html_document
+---
+---
+author: "Abhijith Chigurupati & Vidhi Sharma"
+date: '2022-04-10'
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+These are the libraries required to run this R Markdown file, all are available via CRAN. 
+```{r warning=FALSE}
+library(xts)
+library(dplyr)
+library("readxl")
+library(lubridate)
+library(dagitty)
+library(ggdag)
+library(BMR)
+library(VARsignR)
+```
+
+
+Importing the data sets, the data sets are imported primarily from the website ;
+
+```{r error=FALSE}
+
+Total_reserves= read.csv('Data/Total reserves.csv')
+nb_reserves= read.csv('Data/Non-BORROW.csv')
+fed_funds_unemp= read.csv('Data/FED_UN_INFLATION_2000-2022.csv')
+realgdp_ndef=read.csv('Data/Us-gdp.csv')
+CPI= read.csv('Data/CPI.csv')
+```
+Data cleaning:
+1. converting Total Reserves to billion dollar unit.
+2. Change the formats of dates in each file
+3. Joining all these files in to single dataframe called df with Date
+
+
+```{r error=FALSE}
+
+Total_reserves$Total.Reserves<-Total_reserves$Total.Reserves/1000000000
+Total_reserves$Date<-mdy(Total_reserves$Date)
+nb_reserves$Date <- mdy(nb_reserves$Date)
+realgdp_ndef$Date<-mdy(realgdp_ndef$Date)
+CPI$Date<-mdy(CPI$Date)
+fed_funds_unemp$Date<- mdy(fed_funds_unemp$Date)
+```
+
+```{r error=FALSE}
+df1<- inner_join(Total_reserves,realgdp_ndef,by='Date')
+df2<-inner_join(nb_reserves,CPI,by='Date')
+df3<-inner_join(df1,df2,by='Date')
+df<-inner_join(df3,fed_funds_unemp,by='Date')
+df<-select(df,Date,Monthly.Real.GDP.Index,GDP.Deflator,CPI,FEDFUNDS,NonBorrow,Total.Reserves)
+```
+
+Causal Paths: 
+1) Inflation \> threshold \> Fed polic\> Fed rate or to Increase CRR \> Non borrow \> interest rate 
+2) FED policy \> changes in MS \> Total Reserves \> Interest rate \> Inflation 
+3) Real GDP\> Prices change or interest rate \> CPI \> ngdp \> unemployment 
+4) Inflation \> gdp \> CPI \> Unemployment
+
+These are theoritical paths suggested by all mainstream macro economics theories but then we have lags for monetary policy these are 
+
+
+
+```{r}
+
+g1<- dagitty ( 'dag {
+bb="-6.283,-3.975,4.635,4.322"
+"Fed Funds Rate" [pos="-2.674,-1.762"]
+"GDP Deflator" [pos="2.690,0.941"]
+"Monetary Policy Shocks" [exposure,pos="-5.373,-3.284"]
+"Non Borrowed Reserves" [pos="-1.979,0.051"]
+"Total Reserves" [pos="-0.101,-2.880"]
+"Treasury bonds" [pos="-1.676,3.247"]
+CPI [pos="3.725,1.900"]
+Lags [latent,pos="0.169,1.156"]
+GDP [outcome,pos="3.209,-1.575"]
+Investment [latent,pos="0.601,-1.464"]
+Savings [latent,pos="1.390,3.630"]
+"Fed Funds Rate" -> "Total Reserves"
+"Fed Funds Rate" -> "Lags"
+"Monetary Policy Shocks" -> "Fed Funds Rate"
+"Non Borrowed Reserves" -> "Total Reserves"
+"Non Borrowed Reserves" -> Investment
+"Non Borrowed Reserves" <-> "Treasury bonds"
+"Total Reserves" -> GDP
+"Treasury bonds" -> Savings
+CPI -> "GDP Deflator"
+CPI -> GDP
+Lags -> "GDP Deflator"
+Lags -> "Treasury bonds"
+Lags -> CPI
+Lags -> Investment
+lags -> Savings
+GDP -> "GDP Deflator"
+Investment -> GDP
+Savings -> "GDP Deflator"
+Savings -> CPI
+}
+')
+
+plot(g1)
+
+ggdag::ggdag_status(g1, text = FALSE, use_labels = "name")  
+#+ guides(color = "none")  # Turn off legend theme
+```
+
+Converting the dataframe into a time series object for our modelling purpose.
+
+```{r}
+dat <- as.ts(df[, 2:7], start = c(2000, 1), frequency = 12)
+plot(dat)
+```
+The main findings by Uhlig and recently published articles are that in long run they all tend to accept that money is neutral and exogenous monetary shocks will not have any lasting effect on output. 
+
+Sign Restrictions ( As mentioned on Uhlig 2005 paper):
+
+" is important to point out that the first element of constr indicates the shock of interest in the model. One must specify at least a sign restriction for the shock of interest. Any additional restrictions are optional and can appear in any order. The sign of the integers in constr indicate the direction of the restrictions, i.e. a “+” indicates a response ≥0 and “−” indicates a response restriction ≤0."
+
+1) Fourth variable: do not decrease the FED’s policy rate for x months after the shock
+2) Third variable: do not increase commodity prices for x months after the shock
+3) Second variable: do not increase inflation for x months after the shock
+4) Fifth variable: do not increase non-borrowed reserves for x months after the shock
+
+```{r}
+constr <- c(+4, -3, -2, -5)
+```
+
+Using Uhlig reject , for more on arguments used for uhlig you can find using ??uhlig.reject in your R console.
+
+```{r include=FALSE}
+
+model1 <- uhlig.reject(Y = dat, nlags = 12, draws = 200, 
+    subdraws = 200, nkeep = 1000, KMIN = 1, KMAX = 6, constrained = constr, 
+    constant = FALSE, steps = 60)
+```
+
+From the object obtained from uhlig.reject BDraws- posterior draws of the coefficients of the model
+SDraws- the variance-covariance matrix 
+
+```{r}
+summary(model1)
+```
+For monetary policy shocks induced by the sign restrictions ; we can CPI is moving in opposite direction to Fed Funds Rate and how GDP is neutral after certain period of time.
+
+```{r}
+nam <- c("GDP", "GDP Deflator", "Comm Price Index", "Fed Funds Rate", 
+    "NB Reserves", "Total Reserves")
+
+irfs1 <- model1$IRFS
+irfplot(irfdraws = irfs1,type = "median", labels = nam, 
+    save = FALSE, bands = c(0.16, 0.84), grid = TRUE, bw = FALSE)
+
+
+```
+We can how the forecast error variance is decomposed by a monetary policy shock, Most Forecast Error is up and by this, one can conclude monetary policy shocks induces changes in all these variables.
+```{r}
+fevd1 <- model1$FEVDS
+fevdplot(fevd1, label = nam,  periods=c(1,10,20,30,40,50,60),table = TRUE)
+```
+
+To observe the Monetary Policy shocks we can save them as provided by uhlig.reject object and observe the drastic shocks observed in 2004 and 2005.
+```{r}
+shocks <- model1$SHOCKS
+ss <- ts(t(apply(shocks, 2, quantile, probs = c(0.5, 0.16, 
+    0.84))), frequency = 12, start = c(2000, 1))
+```
+
+
+
+```{r}
+plot(ss[, 1], type = "l", col = "blue", ylab = "Monetary Policy shock", 
+    ylim = c(min(ss), max(ss)))
+abline(h = 0, col = "black")
+lines(ss[, 2], col = "red")
+lines(ss[, 3], col = "green")
+```
+
+
+Rubio Rejection method:
+
+The Approach is the same as uhlig.reject , the methodology used to deduce the similar theoretical framework is a little different to uhlig 2005. as RWZ is published in 2010, used more sophisticated tools
+```{r include=FALSE}
+model2 <- rwz.reject(Y=dat, nlags=12, draws=200, subdraws=200, nkeep=1000,
+KMIN=1, KMAX=6, constrained=constr, constant=FALSE, steps=60)
+```
+
+
+```{r}
+irfs2 <- model2$IRFS
+irfplot(irfdraws=irfs2, type="median", labels=nam, save=FALSE, bands=c(0.16, 0.84),
+grid=TRUE, bw=FALSE)
+```
+
+
+
+
+Additional Restriction:
+
+To keep an additional restriction; We use restriction on total reserves as well; for say borrowed reserves ( this effect is though direct and evident)
+
+
+
+```{r include=FALSE}
+
+constr1 <- c(+4,-3,-2,-5,-6)
+model3 <- uhlig.reject(Y=dat, nlags=12, draws=200, subdraws=200, nkeep=1000,
+KMIN=1, KMAX=6, constrained=constr1, constant=FALSE, steps=60)
+```
+
+
+
+```{r}
+
+irfs3 <- model3$IRFS
+irfplot(irfdraws=irfs3, type="median", labels=nam, save=FALSE, bands=c(0.16, 0.84),
+grid=TRUE, bw=FALSE)
+```
+
+Now let us try building a new model with the expansionary monetary policy and to see if the effects are same and we are consistent with the findings.
+
+
+```{r warning=FALSE}
+constr3 <- c(-4,+3,+2,+5)
+```
+
+
+```{r warning=FALSE}
+model5 <- uhlig.reject(Y = dat, nlags = 12, draws = 200, 
+    subdraws = 200, nkeep = 1000, KMIN = 1, KMAX = 6, constrained = constr3, 
+    constant = FALSE, steps = 60)
+```
+
+
+```{r}
+nam <- c("GDP", "GDP Deflator", "Comm Price Index", "Fed Funds Rate", 
+    "NB Reserves", "Total Reserves")
+
+irfs6 <- model5$IRFS
+irfplot(irfdraws = irfs6,type = "median", labels = nam, 
+    save = FALSE, bands = c(0.16, 0.84), grid = TRUE, bw = FALSE)
+```
+
+The results seem to be consistent and in the long run money tends to be neutral. 
